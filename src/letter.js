@@ -12,7 +12,7 @@ To:
 
 Subject: Request for Leave from {{startDate}} to {{endDate}}
 
-Respected Sir/Madam,
+Respected Sir,
 
 I am writing to formally request leave from {{startDate}} to {{endDate}}, for a total duration of {{duration}}.
 
