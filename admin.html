@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#12345b">
+  <title>Administrator settings · Employee Leave Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Employee Leave Portal home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M8 5h11l6 6v16H8z"/><path d="M19 5v7h6M12 17h9M12 21h9"/></svg></span><span class="brand-copy"><strong>Employee Leave Portal</strong><small>People operations</small></span></a>
+    <nav><a href="index.html">← Employee portal</a></nav>
+  </header>
+  <main class="admin-main">
+    <section class="admin-intro"><span class="step-label">PORTAL CONFIGURATION</span><h1>Administrator settings</h1><p>Manage where leave requests are sent and how the formal letter is presented.</p></section>
+    <section class="panel admin-panel">
+      <div id="login-view">
+        <h2>Administrator sign in</h2>
+        <form id="login-form" class="admin-form">
+          <label class="field"><span>Administrator password</span><input name="password" type="password" autocomplete="current-password" required></label>
+          <div id="backend-config-group" class="field">
+            <span>Backend API URL <small>Optional for separate HTTPS server hosting</small></span>
+            <input id="backend-url-input" name="backendUrl" type="url" placeholder="e.g. https://api.yourcompany.com (leave empty for same origin)">
+          </div>
+          <button class="button button-primary" type="submit">Sign in <span aria-hidden="true">→</span></button>
+        </form>
+      </div>
+      <div id="settings-view" class="hidden">
+        <h2>Company details</h2>
+        <form id="settings-form" class="admin-form">
+          <label class="field"><span>Company name <i>*</i></span><input name="companyName" maxlength="120" required></label>
+          <label class="field"><span>Company official email <i>*</i></span><input name="officialEmail" type="email" maxlength="254" required></label>
+          <label class="field"><span>Official company address <i>*</i></span><textarea name="address" rows="3" maxlength="500" required></textarea></label>
+          <label class="field"><span>HR Manager / Reporting Manager designation <i>*</i></span><input name="managerDesignation" maxlength="120" required></label>
+          <label class="field"><span>Company logo URL <small>Optional; HTTPS only</small></span><input name="logoUrl" type="url" maxlength="500" placeholder="https://company.example/logo.png"></label>
+          <label class="field"><span>Formal leave letter template <i>*</i></span><textarea name="template" rows="18" maxlength="10000" required></textarea></label>
+          <p class="admin-hint">Supported placeholders: {{employeeName}}, {{employeeId}}, {{departmentLine}}, {{employeeEmail}}, {{managerDesignation}}, {{companyName}}, {{companyAddress}}, {{startDate}}, {{endDate}}, {{duration}}, {{reason}}, {{notesBlock}}, {{signatureDepartmentLine}}, {{submissionDate}}.</p>
+          <label class="field checkbox-field"><span><input name="sendConfirmation" type="checkbox"> Send a receipt confirmation to the employee</span></label>
+          <button class="button button-primary" type="submit">Save company settings</button>
+        </form>
+        <p class="admin-hint">SMTP credentials and the administrator password are configured on the server and are never shown here. Submitted leave requests are not automatically approved.</p>
+        <button id="logout-button" class="button button-secondary" type="button">Sign out</button>
+      </div>
+      <p id="admin-message" class="admin-message hidden" role="status"></p>
+    </section>
+  </main>
+  <script src="admin.js" defer></script>
+</body>
+</html>

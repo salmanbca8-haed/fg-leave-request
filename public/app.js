@@ -40,6 +40,7 @@ Yours sincerely,
 {{employeeName}}
 Employee ID: {{employeeId}}
 {{signatureDepartmentLine}}Date of Submission: {{submissionDate}}`;
+
 let company = {
   companyName: "Fuglide Innovation Intelligence Network",
   address: "Dindigul",
@@ -47,6 +48,7 @@ let company = {
   logoUrl: "",
   template: previewTemplate,
 };
+
 function fieldValue(name) {
   return form.elements.namedItem(name).value.trim();
 }
@@ -154,28 +156,54 @@ function validateForm() {
   return true;
 }
 
+function getBackendUrl() {
+  if (typeof window === "undefined") return "";
+  const meta = document.querySelector('meta[name="backend-api-url"]')?.getAttribute("content");
+  const stored = window.localStorage ? window.localStorage.getItem("leave_portal_backend_url") : null;
+  const globalVar = window.LEAVE_PORTAL_BACKEND_URL;
+  const url = (globalVar || stored || meta || "").trim();
+  return url.replace(/\/+$/, "");
+}
+
+function applyCompanySettings(data) {
+  company = { ...company, ...data };
+  const companyName = company.companyName || "Fuglide Innovation Intelligence Network";
+  const brandName = document.querySelector("#brand-name");
+  const footerCompanyName = document.querySelector("#footer-company-name");
+  if (brandName) brandName.textContent = companyName;
+  if (footerCompanyName) footerCompanyName.textContent = companyName;
+  const logo = document.querySelector("#company-logo");
+  const mark = document.querySelector(".brand-mark");
+  if (company.logoUrl && logo && mark) {
+    logo.src = company.logoUrl;
+    logo.alt = `${companyName} logo`;
+    logo.referrerPolicy = "no-referrer";
+    logo.classList.remove("hidden");
+    mark.querySelector("svg")?.classList.add("hidden");
+  }
+  updateLetter();
+}
+
 async function loadCompany() {
+  const backend = getBackendUrl();
+  const isStaticHost = window.location.hostname.endsWith("github.io") || window.location.protocol === "file:";
+
+  if (!backend && isStaticHost) {
+    applyCompanySettings(company);
+    return;
+  }
+
+  const endpoint = backend ? `${backend}/api/settings` : "/api/settings";
   try {
-    const response = await fetch("/api/settings");
+    const response = await fetch(endpoint);
     if (!response.ok) throw new Error();
-    company = { ...company, ...await response.json() };
-    const companyName = company.companyName || "Fuglide Innovation Intelligence Network";
-    document.querySelector("#brand-name").textContent = companyName;
-    document.querySelector("#footer-company-name").textContent = companyName;
-    const logo = document.querySelector("#company-logo");
-    const mark = document.querySelector(".brand-mark");
-    if (company.logoUrl && logo && mark) {
-      logo.src = company.logoUrl;
-      logo.alt = `${company.companyName} logo`;
-      logo.referrerPolicy = "no-referrer";
-      logo.classList.remove("hidden");
-      mark.querySelector("svg").classList.add("hidden");
-    }
-    updateLetter();
+    const data = await response.json();
+    applyCompanySettings(data);
   } catch {
-    document.querySelector("#brand-name").textContent = company.companyName;
-    document.querySelector("#footer-company-name").textContent = company.companyName;
-    showNotice("Company settings could not be loaded. The letter uses the default company details.", "error");
+    applyCompanySettings(company);
+    if (backend || !isStaticHost) {
+      showNotice("Company settings could not be loaded. The letter uses the default company details.", "error");
+    }
   }
 }
 

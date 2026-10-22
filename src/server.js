@@ -34,10 +34,44 @@ app.use(helmet({
 }));
 app.use(express.json({ limit: "20kb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
+app.use(express.static(path.join(__dirname, "..")));
 app.use((request, _response, next) => {
   request.cookies = parseCookies(request.headers.cookie);
   next();
 });
+
+const defaultAllowedOrigins = ["https://salmanbca8-haed.github.io"];
+const configuredOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
+const allowedOrigins = new Set([...defaultAllowedOrigins, ...configuredOrigins]);
+
+function isAllowedOrigin(origin, host) {
+  if (!origin) return true;
+  try {
+    const originUrl = new URL(origin);
+    if (originUrl.host === host) return true;
+    return allowedOrigins.has(origin) || allowedOrigins.has(originUrl.origin);
+  } catch {
+    return false;
+  }
+}
+
+app.use((request, response, next) => {
+  const origin = request.get("origin");
+  if (origin && isAllowedOrigin(origin, request.get("host"))) {
+    response.setHeader("Access-Control-Allow-Origin", origin);
+    response.setHeader("Access-Control-Allow-Credentials", "true");
+    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
+    response.setHeader("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key");
+  }
+  if (request.method === "OPTIONS") {
+    return response.sendStatus(204);
+  }
+  next();
+});
+
 app.use("/api", (_request, response, next) => {
   response.setHeader("Cache-Control", "no-store");
   next();
@@ -66,14 +100,8 @@ const pdfLimiter = rateLimit({
 
 function verifySameOrigin(request, response, next) {
   const origin = request.get("origin");
-  if (origin) {
-    try {
-      if (new URL(origin).host !== request.get("host")) {
-        return response.status(403).json({ error: "Request origin was not accepted." });
-      }
-    } catch {
-      return response.status(403).json({ error: "Request origin was not accepted." });
-    }
+  if (origin && !isAllowedOrigin(origin, request.get("host"))) {
+    return response.status(403).json({ error: "Request origin was not accepted." });
   }
   return next();
 }
@@ -148,12 +176,26 @@ app.post("/api/admin/login", loginLimiter, verifySameOrigin, (request, response)
   if (!safeEqual(password, adminPassword)) {
     return response.status(401).json({ error: "The administrator password is incorrect." });
   }
-  response.setHeader("Set-Cookie", `leave_admin=${createAdminToken()}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${process.env.NODE_ENV === "production" ? "; Secure" : ""}`);
+  const origin = request.get("origin");
+  const isCrossOrigin = origin && (() => {
+    try { return new URL(origin).host !== request.get("host"); } catch { return false; }
+  })();
+  const cookieFlags = isCrossOrigin
+    ? "; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=28800"
+    : `; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  response.setHeader("Set-Cookie", `leave_admin=${createAdminToken()}${cookieFlags}`);
   return response.json({ success: true });
 });
 
 app.post("/api/admin/logout", verifySameOrigin, (request, response) => {
-  response.setHeader("Set-Cookie", `leave_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`);
+  const origin = request.get("origin");
+  const isCrossOrigin = origin && (() => {
+    try { return new URL(origin).host !== request.get("host"); } catch { return false; }
+  })();
+  const cookieFlags = isCrossOrigin
+    ? "; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=0"
+    : `; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  response.setHeader("Set-Cookie", `leave_admin=${cookieFlags}`);
   response.json({ success: true });
 });
 
