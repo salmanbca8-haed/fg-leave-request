@@ -278,38 +278,135 @@ form.addEventListener("input", (event) => {
   else updateLetter();
 });
 form.addEventListener("change", updateDuration);
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function populateReceipt(details) {
+  const receipt = document.querySelector("#receipt");
+  if (!receipt) return;
+  receipt.innerHTML = `
+    <div class="receipt-item">
+      <small>Employee Name</small>
+      <strong>${escapeHtml(details.name)}</strong>
+    </div>
+    <div class="receipt-item">
+      <small>Employee ID</small>
+      <strong>${escapeHtml(details.id)}</strong>
+    </div>
+    <div class="receipt-item">
+      <small>Work Email</small>
+      <strong>${escapeHtml(details.email)}</strong>
+    </div>
+    <div class="receipt-item">
+      <small>Leave Period</small>
+      <strong>${escapeHtml(details.dates)}</strong>
+    </div>
+    <div class="receipt-item">
+      <small>Duration &amp; Type</small>
+      <strong>${escapeHtml(details.duration)} (${escapeHtml(details.leaveType)})</strong>
+    </div>
+    <div class="receipt-item">
+      <small>Submitted To</small>
+      <strong>${escapeHtml(details.recipient)}</strong>
+    </div>
+    <div class="receipt-item">
+      <small>Submission Date</small>
+      <strong>${escapeHtml(details.time)}</strong>
+    </div>
+    <div class="receipt-item">
+      <small>Status</small>
+      <strong style="color: var(--secondary, #f6b84b);">Formal Draft Prepared</strong>
+    </div>
+  `;
+}
+
 document.querySelector("#send-button").addEventListener("click", (event) => {
   if (!validateForm()) {
     previewSection.classList.add("hidden");
     form.closest(".portal-layout").classList.remove("hidden");
     document.querySelector(".intro").classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
-  const button = event.currentTarget;
+
   const employeeName = fieldValue("name");
   const employeeId = fieldValue("id");
-  const subject = `Leave Request — ${employeeName} (${employeeId}) — ${prettyDate(fieldValue("startDate"))} to ${prettyDate(fieldValue("endDate"))}`;
-  const body = `${letterPreview.textContent}\n\nLeave type: ${fieldValue("leaveType")}`;
+  const employeeEmail = fieldValue("email");
+  const startVal = fieldValue("startDate");
+  const endVal = fieldValue("endDate");
+  const leaveTypeVal = fieldValue("leaveType");
+  const datesText = `${prettyDate(startVal)} to ${prettyDate(endVal)}`;
+  const durationVal = durationText();
+
+  const subject = `Leave Request — ${employeeName} (${employeeId}) — ${datesText}`;
+  const body = `${letterPreview.textContent}\n\nLeave type: ${leaveTypeVal}`;
+
   const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(leaveRecipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   const accountChooserUrl = `https://accounts.google.com/AccountChooser?service=mail&continue=${encodeURIComponent(composeUrl)}`;
+  const mailtoUrl = `mailto:${encodeURIComponent(leaveRecipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-  notice.replaceChildren(
-    document.createTextNode(`Choose your personal @gmail.com account to open a draft addressed to ${leaveRecipient}. Review it and press Send in Gmail. `),
-  );
-  const fallbackLink = document.createElement("a");
-  fallbackLink.href = accountChooserUrl;
-  fallbackLink.target = "_blank";
-  fallbackLink.rel = "noopener noreferrer";
-  fallbackLink.textContent = "Open Gmail draft";
-  notice.append(fallbackLink);
-  notice.className = "notice info";
-  button.blur();
-  const composeLink = document.createElement("a");
-  composeLink.href = accountChooserUrl;
-  composeLink.target = "_blank";
-  composeLink.rel = "noopener noreferrer";
-  composeLink.click();
+  const targetUrl = accountChooserUrl.length < 2400 ? accountChooserUrl : composeUrl;
+
+  let newTabOpened = false;
+  try {
+    const openedWindow = window.open(targetUrl, "_blank");
+    if (openedWindow && !openedWindow.closed && typeof openedWindow.closed !== "undefined") {
+      newTabOpened = true;
+    }
+  } catch {
+    newTabOpened = false;
+  }
+
+  populateReceipt({
+    name: employeeName,
+    id: employeeId,
+    email: employeeEmail,
+    dates: datesText,
+    duration: durationVal,
+    leaveType: leaveTypeVal,
+    recipient: leaveRecipient,
+    time: dateFormat.format(new Date()),
+  });
+
+  const successGmailLink = document.querySelector("#success-gmail-link");
+  if (successGmailLink) {
+    successGmailLink.href = targetUrl;
+  }
+
+  const mailtoLink = document.querySelector("#success-mailto-link");
+  if (mailtoLink) {
+    mailtoLink.href = mailtoUrl;
+  }
+
+  previewSection.classList.add("hidden");
+  successSection.classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  if (newTabOpened) {
+    showNotice(`Gmail draft opened addressed to ${leaveRecipient}. Review it and press Send in Gmail.`, "success");
+  } else {
+    showNotice(`Your leave request is prepared. Click "Open Gmail Draft" below to launch your email in Gmail.`, "info");
+  }
 });
+
+const copyBtn = document.querySelector("#copy-letter-button");
+if (copyBtn) {
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(letterPreview.textContent);
+      showNotice("Leave letter text copied to clipboard!", "success");
+    } catch {
+      showNotice("Could not copy automatically. You can copy the text from the preview.", "info");
+    }
+  });
+}
 
 loadCompany();
 updateDuration();
