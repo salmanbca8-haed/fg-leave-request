@@ -3,28 +3,64 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#12345b">
-  <title>Employee Leave Portal</title>
+  <meta name="theme-color" content="#061124">
+  <title>Employee Leave Portal · Fuglide Innovation Intelligence Network</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <meta name="backend-api-url" content="">
 </head>
 <body>
+  <div class="announcement-bar">
+    <div class="announcement-bar__contact">
+      <a href="mailto:fuglide@gmail.com" class="announcement-bar__phone">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        <span>fuglide@gmail.com</span>
+      </a>
+    </div>
+    <div class="announcement-bar__marquee">
+      <div class="announcement-bar__viewport">
+        <div class="announcement-bar__track">
+          <div class="announcement-bar__group">
+            <span class="announcement-bar__item">Fuglide Innovation Intelligence Network</span>
+            <span class="announcement-bar__item">Official Employee Leave Portal</span>
+            <span class="announcement-bar__item">Formal Letter Generation &amp; Gmail Dispatch</span>
+            <span class="announcement-bar__item">People Operations · Dindigul</span>
+          </div>
+          <div class="announcement-bar__group" aria-hidden="true">
+            <span class="announcement-bar__item">Fuglide Innovation Intelligence Network</span>
+            <span class="announcement-bar__item">Official Employee Leave Portal</span>
+            <span class="announcement-bar__item">Formal Letter Generation &amp; Gmail Dispatch</span>
+            <span class="announcement-bar__item">People Operations · Dindigul</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <header class="site-header">
-    <a class="brand" href="index.html" aria-label="Employee Leave Portal home">
-      <span class="brand-mark"><img id="company-logo" class="hidden" alt=""><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 5h11l6 6v16H8z"/><path d="M19 5v7h6M12 17h9M12 21h9"/></svg></span>
-      <span class="brand-copy"><strong id="brand-name">Fuglide Innovation Intelligence Network</strong><small>People operations</small></span>
-    </a>
-    <nav><a class="nav-link" href="#request">Submit a request</a><a class="admin-link" href="admin.html">Administrator</a></nav>
+    <div class="container navbar">
+      <a class="brand" href="index.html" aria-label="Fuglide Leave Portal Home">
+        <img src="logo/logo.png" alt="FU-GLIDE Logo" class="brand-logo">
+        <img src="logo/logobelow.png" alt="Innovation Intelligence Network" class="brand-logo-sub">
+      </a>
+      <nav class="nav-links">
+        <a class="nav-link active" href="#request">Submit a request</a>
+        
+      </nav>
+    </div>
   </header>
+
   <main>
     <section class="intro">
-      <div class="eyebrow"><span></span> PEOPLE OPERATIONS</div>
+      <div class="eyebrow"><span></span> PEOPLE OPERATIONS · FU-GLIDE</div>
       <h1>Take the time you need.<br><span>We’ll help with the rest.</span></h1>
-      <p>Submit your leave request and review the formal letter before it goes to your company.</p>
+      <p>Submit your leave request and review the formal letter before it goes to company.</p>
     </section>
-    <div id="notice" class="notice hidden" role="status" aria-live="polite"></div>
+
+    <!-- <div id="notice" class="notice hidden" role="status" aria-live="polite"></div> -->
+
     <section id="request" class="portal-layout">
       <form id="leave-form" class="panel form-panel" novalidate>
         <div class="panel-heading">
@@ -40,43 +76,140 @@
           <label class="field"><span>Leave start date <i>*</i></span><input name="startDate" type="date" required></label>
           <label class="field"><span>Leave end date <i>*</i></span><input name="endDate" type="date" required></label>
           <label class="field"><span>Leave type <i>*</i></span>
-            <select name="leaveType" required><option value="">Select leave type</option><option>Casual Leave</option><option>Sick Leave</option><option>Emergency Leave</option><option>Personal Leave</option><option>Other</option></select>
+            <select name="leaveType" required>
+              <option value="">Select leave type</option>
+              <option>Casual Leave</option>
+              <option>Sick Leave</option>
+              <option>Emergency Leave</option>
+              <option>Personal Leave</option>
+              <option>Other</option>
+            </select>
           </label>
           <label class="field"><span>Duration <i>*</i></span>
-            <select name="unit"><option value="days">Full calendar day(s)</option><option value="half-day">Half day</option><option value="hours">Hours</option></select>
+            <select name="unit">
+              <option value="days">Full calendar day(s)</option>
+              <option value="half-day">Half day</option>
+              <option value="hours">Hours</option>
+            </select>
           </label>
           <label class="field hidden" id="hours-field"><span>Hours requested <i>*</i></span><input name="hours" type="number" min="0.5" max="24" step="0.5" placeholder="e.g. 3.5"></label>
-          <div class="duration-summary field-wide" aria-live="polite"><span class="summary-icon">↗</span><span><strong id="duration-value">Choose your dates to calculate leave duration</strong><small>Calendar days include weekends and public holidays.</small></span></div>
+          <div class="duration-summary field-wide" aria-live="polite">
+            <span class="summary-icon">↗</span>
+            <span><strong id="duration-value">Choose your dates to calculate leave duration</strong><small>Calendar days include weekends and public holidays.</small></span>
+          </div>
           <label class="field field-wide"><span>Reason for leave <i>*</i></span><textarea name="reason" rows="4" maxlength="3000" placeholder="Share the reason for your leave request…" required></textarea></label>
           <label class="field field-wide"><span>Additional notes <small>Optional</small></span><textarea name="notes" rows="2" maxlength="2000" placeholder="Anything else your manager should know?"></textarea></label>
         </div>
-        <div class="form-footer"><span>Choose your personal Gmail account when sending.</span><button class="button button-primary" id="preview-button" type="button">Preview leave letter <span aria-hidden="true">→</span></button></div>
+        <div class="form-footer">
+          <span>Choose your personal Gmail account when sending.</span>
+          <button class="button button-primary" id="preview-button" type="button">Preview leave letter <span aria-hidden="true">→</span></button>
+        </div>
       </form>
+
       <aside class="side-column">
         <section class="panel guidance">
-          <span class="side-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+          <span class="side-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg>
+          </span>
           <h3>Before you submit</h3>
-          <ul><li>Send asks you to choose your Google account.</li><li>Select your personal @gmail.com account to send to fuglide@gmail.com.</li><li>Review the draft and press Send in Gmail. This is not an approval.</li></ul>
-          <div class="help-note"><span>?</span><span>Need help? Contact your HR or reporting manager.</span></div>
+          <ul>
+            <li>Send asks you to choose your Google account.</li>
+            <li>Select your personal @gmail.com account to send to fuglide@gmail.com.</li>
+            <li>Review the draft and press Send in Gmail. This is not an approval.</li>
+          </ul>
+          <div class="help-note"><span>?</span><span>Need help? Contact HR or reporting manager.</span></div>
         </section>
-        <section class="secure-note"><span class="lock-icon">⌑</span><span><strong>Your details stay private</strong><small>Only authorized company personnel receive your request.</small></span></section>
+        <section class="secure-note">
+          <span class="lock-icon">⌑</span>
+          <span><strong>Your details stay private</strong><small>Only authorized company personnel receive your request.</small></span>
+        </section>
       </aside>
     </section>
+
     <section id="preview-section" class="panel preview-panel hidden">
-      <div class="panel-heading preview-heading"><div><span class="step-label">REVIEW BEFORE SENDING</span><h2>Your leave letter</h2><p>Check the details below. You can go back to edit any information.</p></div><span class="document-badge">FORMAL LETTER</span></div>
+      <div class="panel-heading preview-heading">
+        <div>
+          <span class="step-label">REVIEW BEFORE SENDING</span>
+          <h2>Your leave letter</h2>
+          <p>Check the details below. You can go back to edit any information.</p>
+        </div>
+        <span class="document-badge">FORMAL LETTER</span>
+      </div>
       <article id="letter-preview" class="letter-paper" aria-label="Leave letter preview"></article>
-      <div class="preview-footer"><button class="button button-secondary" id="edit-button" type="button">← Edit details</button><div><button class="button button-secondary" id="download-draft" type="button">Download as PDF</button><button class="button button-primary" id="send-button" type="button">Send <span aria-hidden="true">→</span></button></div></div>
+      <div class="preview-footer">
+        <button class="button button-secondary" id="edit-button" type="button">← Edit details</button>
+        <div>
+          <button class="button button-secondary" id="download-draft" type="button">Download as PDF</button>
+          <button class="button button-primary" id="send-button" type="button">Send <span aria-hidden="true">→</span></button>
+        </div>
+      </div>
       <p class="submission-disclaimer">Send opens Google's account chooser. Select your personal @gmail.com account, review the draft addressed to fuglide@gmail.com, then press Send in Gmail.</p>
     </section>
+
     <section id="success-section" class="panel success-panel hidden" aria-live="polite">
       <div class="success-icon"><svg viewBox="0 0 32 32"><path d="m8 16 5 5L24 10"/></svg></div>
-      <span class="step-label">REQUEST RECEIVED</span><h2>Your leave request has been submitted successfully.</h2>
-      <p class="success-copy">Your request has been sent to your company for review. This confirmation is not an approval.</p>
+      <span class="step-label">REQUEST RECEIVED</span>
+      <h2>Your leave request has been submitted successfully.</h2>
+      <p class="success-copy">Your request has been sent to fuglide for review. This confirmation is not an approval. Wait for Return letter</p>
       <div id="receipt" class="receipt"></div>
-      <div class="success-actions"><button class="button button-secondary" id="download-final" type="button">Download letter PDF</button><button class="button button-primary" id="home-button" type="button">Return to home</button></div>
+      <div class="success-actions">
+        <button class="button button-secondary" id="download-final" type="button">Download letter PDF</button>
+        <button class="button button-primary" id="home-button" type="button">Return to home</button>
+      </div>
     </section>
   </main>
-  <footer><span id="footer-company-name">Fuglide Innovation Intelligence Network</span><span>People operations, made simpler.</span></footer>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-col footer-brand">
+        <a class="brand footer-logo-wrap" href="index.html" aria-label="FU-GLIDE Home">
+          <img src="logo/logo.png" alt="FU-GLIDE Logo" class="brand-logo" style="height: 68px;">
+          <img src="logo/logobelow.png" alt="Innovation Intelligence Network" class="brand-logo-sub" style="height: 13px;">
+        </a>
+        <p class="footer-about-text">Fuglide Innovation Intelligence Network empowers seamless people operations and verified corporate leave documentation with instantaneous Gmail integration.</p>
+      </div>
+      <div class="footer-col">
+        <h3 class="footer-heading">Portal Navigation</h3>
+        <ul class="footer-nav-list">
+          <li class="footer-nav-item"><a class="footer-nav-link" href="#request"><svg class="footer-link-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>Submit Leave Request</a></li>
+          <!-- <li class="footer-nav-item"><a class="footer-nav-link" href="admin.html"><svg class="footer-link-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>Administrator Portal</a></li> -->
+          <li class="footer-nav-item"><a class="footer-nav-link" href="README.md" target="_blank"><svg class="footer-link-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>Documentation</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h3 class="footer-heading">Corporate Office</h3>
+        <div class="footer-contact-item">
+          <div class="footer-contact-icon"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></div>
+          <div class="footer-contact-info">
+            <span class="footer-contact-label">Location</span>
+            <span class="footer-contact-val">Dindigul, Tamil Nadu, India</span>
+          </div>
+        </div>
+        <div class="footer-contact-item">
+          <div class="footer-contact-icon"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+          <div class="footer-contact-info">
+            <span class="footer-contact-label">Official Inquiries</span>
+            <a class="footer-contact-val" href="mailto:fuglide@gmail.com">fuglide@gmail.com</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h3 class="footer-heading">Executive &amp; Governance</h3>
+        <p class="footer-contact-val" style="margin-bottom: 0.75rem;"><strong>Founder &amp; CEO:</strong> T. Hariharan</p>
+        <div class="footer-tagline-pill">
+          <span>Official Leave Management System</span>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.85rem; line-height: 1.5;">This portal generates verified formal letters and pre-fills your employee leave dispatch. Submission does not constitute immediate approval.</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; width: 100%;">
+        <p>&copy; 2026 Fuglide Innovation Intelligence Network. All rights reserved.</p>
+        
+      </div>
+    </div>
+  </footer>
+
   <script src="vendor/jspdf.umd.min.js" defer></script>
   <script src="app.js" defer></script>
 </body>

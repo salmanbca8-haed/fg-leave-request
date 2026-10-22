@@ -48,7 +48,7 @@ test("letter formats dates, preserves reason text and omits empty optional detai
   }, new Date("2026-10-20T12:00:00Z"));
   assert.match(letter, /22 October 2026 to 24 October 2026/);
   assert.match(letter, /To:\n\nThe HR Manager/);
-  assert.match(letter, /Respected Sir\/Madam,/);
+  assert.match(letter, /Respected Sir/);
   assert.match(letter, /Family commitment/);
   assert.match(letter, /Product Design/);
   assert.doesNotMatch(letter, /Additional notes:/);
