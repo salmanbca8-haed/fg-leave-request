@@ -6,7 +6,7 @@ const notice = document.querySelector("#notice");
 const formErrors = document.querySelector("#form-errors");
 const durationValue = document.querySelector("#duration-value");
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-const leaveRecipient = "fuglide@gmail.com";
+const leaveRecipient = "salmanbca8@gmail.com";
 const previewTemplate = `From:
 
 {{employeeName}}
