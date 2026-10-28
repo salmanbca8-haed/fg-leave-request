@@ -465,7 +465,7 @@ function populateSettings(settings) {
 }
 
 async function showDashboard() {
-  loginView.classList.add("hidden");
+  loginView?.classList.add("hidden");
   dashboardView.classList.remove("hidden");
   message.classList.add("hidden");
 
@@ -566,7 +566,7 @@ document.querySelector("#logout-button")?.addEventListener("click", async () => 
   }
   sessionStorage.removeItem("leave_admin_auth");
   dashboardView.classList.add("hidden");
-  loginView.classList.remove("hidden");
+  loginView?.classList.remove("hidden");
   showMessage("You have been signed out.", "success");
 });
 
