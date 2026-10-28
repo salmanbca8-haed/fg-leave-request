@@ -49,44 +49,107 @@
     </div>
   </header>
 
-  <main class="admin-main">
+  <main class="admin-main admin-main-wide">
     <section class="admin-intro">
-      <div class="eyebrow"><span></span> PORTAL CONFIGURATION</div>
-      <h1>Administrator Settings</h1>
-      <p>Manage corporate credentials, destination inbox, and formal letter templates.</p>
+      <div class="eyebrow"><span></span> PORTAL ADMINISTRATION &amp; GOVERNANCE</div>
+      <h1>Administrator Portal</h1>
+      <p>Review submitted employee leave requests, approve or reject formal letters, and manage company policies.</p>
     </section>
 
     <section class="panel admin-panel">
       <div id="login-view">
         <h2>Administrator Sign In</h2>
+        <p class="admin-hint" style="margin-top: -0.5rem; margin-bottom: 1.25rem;">Enter the administrative password to access leave approvals and portal configurations.</p>
         <form id="login-form" class="admin-form">
           <label class="field">
             <span>Administrator password</span>
             <input name="password" type="password" autocomplete="current-password" placeholder="Enter administrative password" required>
           </label>
-          <div id="backend-config-group" class="field">
-            <span>Backend API URL <small>Optional for separate HTTPS server hosting</small></span>
-            <input id="backend-url-input" name="backendUrl" type="url" placeholder="e.g. https://api.yourcompany.com (leave empty for same origin)">
-          </div>
-          <button class="button button-primary" type="submit">Sign in <span aria-hidden="true">→</span></button>
+          <button class="button button-primary" type="submit">Sign in to Admin Portal <span aria-hidden="true">→</span></button>
         </form>
       </div>
 
-      <div id="settings-view" class="hidden">
-        <h2>Company Details</h2>
-        <form id="settings-form" class="admin-form">
-          <label class="field"><span>Company name <i>*</i></span><input name="companyName" maxlength="120" required></label>
-          <label class="field"><span>Company official email <i>*</i></span><input name="officialEmail" type="email" maxlength="254" required></label>
-          <label class="field"><span>Official company address <i>*</i></span><textarea name="address" rows="3" maxlength="500" required></textarea></label>
-          <label class="field"><span>HR Manager / Reporting Manager designation <i>*</i></span><input name="managerDesignation" maxlength="120" required></label>
-          <label class="field"><span>Company logo URL <small>Optional; HTTPS only</small></span><input name="logoUrl" type="url" maxlength="500" placeholder="https://company.example/logo.png"></label>
-          <label class="field"><span>Formal leave letter template <i>*</i></span><textarea name="template" rows="18" maxlength="10000" required></textarea></label>
-          <p class="admin-hint">Supported placeholders: {{employeeName}}, {{employeeId}}, {{departmentLine}}, {{employeeEmail}}, {{managerDesignation}}, {{companyName}}, {{companyAddress}}, {{startDate}}, {{endDate}}, {{duration}}, {{reason}}, {{notesBlock}}, {{signatureDepartmentLine}}, {{submissionDate}}.</p>
-          <label class="field checkbox-field"><span><input name="sendConfirmation" type="checkbox"> Send a receipt confirmation to the employee</span></label>
-          <button class="button button-primary" type="submit">Save company settings</button>
-        </form>
-        <p class="admin-hint">SMTP credentials and the administrator password are configured on the server and are never shown here. Submitted leave requests are not automatically approved.</p>
-        <button id="logout-button" class="button button-secondary" type="button" style="margin-top: 1rem;">Sign out</button>
+      <div id="dashboard-view" class="hidden">
+        <!-- Admin Navigation Tabs -->
+        <div class="admin-tabs-nav" role="tablist" aria-label="Administrator sections">
+          <button class="admin-tab active" id="tab-requests-btn" type="button" role="tab" aria-selected="true" data-tab="requests">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            <span>Leave Requests &amp; Approvals</span>
+            <span class="tab-badge" id="pending-count-badge">0</span>
+          </button>
+          <button class="admin-tab" id="tab-settings-btn" type="button" role="tab" aria-selected="false" data-tab="settings">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Company Details &amp; Template</span>
+          </button>
+        </div>
+
+        <!-- Requests Pane -->
+        <div id="requests-pane" class="admin-tab-pane">
+          <div class="admin-stats-grid">
+            <div class="admin-stat-card">
+              <span class="stat-label">Total Submissions</span>
+              <strong class="stat-value" id="stat-total">0</strong>
+            </div>
+            <div class="admin-stat-card stat-pending">
+              <span class="stat-label">Pending Approval</span>
+              <strong class="stat-value" id="stat-pending">0</strong>
+            </div>
+            <div class="admin-stat-card stat-approved">
+              <span class="stat-label">Approved</span>
+              <strong class="stat-value" id="stat-approved">0</strong>
+            </div>
+            <div class="admin-stat-card stat-rejected">
+              <span class="stat-label">Not Approved</span>
+              <strong class="stat-value" id="stat-rejected">0</strong>
+            </div>
+          </div>
+
+          <div class="admin-toolbar">
+            <div class="admin-filter-group" role="group" aria-label="Filter requests by status">
+              <button class="filter-btn active" data-filter="all" type="button">All Requests</button>
+              <button class="filter-btn" data-filter="pending" type="button">Pending (<span id="filter-pending-count">0</span>)</button>
+              <button class="filter-btn" data-filter="approved" type="button">Approved</button>
+              <button class="filter-btn" data-filter="rejected" type="button">Not Approved</button>
+            </div>
+            <div class="admin-search-wrap">
+              <input type="search" id="admin-search-input" placeholder="Search by name, ID, or reference…" aria-label="Search requests">
+              <button id="admin-refresh-btn" class="button button-secondary button-sm" type="button" title="Refresh requests">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="requests-list" class="requests-list" aria-live="polite">
+            <div class="admin-empty-state">
+              <div class="empty-icon">📋</div>
+              <h3>No leave requests found</h3>
+              <p>When employees submit their leave letters on the employee portal, they will appear here in real time for your review and approval.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Pane -->
+        <div id="settings-pane" class="admin-tab-pane hidden">
+          <h2>Company Details &amp; Formal Template</h2>
+          <form id="settings-form" class="admin-form">
+            <label class="field"><span>Company name <i>*</i></span><input name="companyName" maxlength="120" required></label>
+            <label class="field"><span>Company official email <i>*</i></span><input name="officialEmail" type="email" maxlength="254" required></label>
+            <label class="field"><span>Official company address <i>*</i></span><textarea name="address" rows="3" maxlength="500" required></textarea></label>
+            <label class="field"><span>HR Manager / Reporting Manager designation <i>*</i></span><input name="managerDesignation" maxlength="120" required></label>
+            <label class="field"><span>Company logo URL <small>Optional; HTTPS only</small></span><input name="logoUrl" type="url" maxlength="500" placeholder="https://company.example/logo.png"></label>
+            <label class="field"><span>Formal leave letter template <i>*</i></span><textarea name="template" rows="18" maxlength="10000" required></textarea></label>
+            <p class="admin-hint">Supported placeholders: {{employeeName}}, {{employeeId}}, {{departmentLine}}, {{employeeEmail}}, {{managerDesignation}}, {{companyName}}, {{companyAddress}}, {{startDate}}, {{endDate}}, {{duration}}, {{reason}}, {{notesBlock}}, {{signatureDepartmentLine}}, {{submissionDate}}.</p>
+            <label class="field checkbox-field"><span><input name="sendConfirmation" type="checkbox"> Send a receipt confirmation to the employee</span></label>
+            <button class="button button-primary" type="submit">Save company settings</button>
+          </form>
+          <p class="admin-hint">SMTP credentials and the administrator password are configured on the server. Submitted leave requests can be approved or rejected directly from the "Leave Requests &amp; Approvals" tab.</p>
+        </div>
+
+        <div class="admin-footer-bar">
+          <span id="sync-status-indicator" class="sync-indicator"><span class="pulse-dot"></span> Connecting...</span>
+          <button id="logout-button" class="button button-secondary button-sm" type="button">Sign out</button>
+        </div>
       </div>
 
       <p id="admin-message" class="admin-message hidden" role="status"></p>

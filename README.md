@@ -14,8 +14,13 @@ A responsive employee leave request portal for **Fuglide Innovation Intelligence
 1. **Fill out the request:** Enter employee full name, ID, email, dates, leave type, and reason.
 2. **Calculate duration:** Real-time calculation of calendar days, half-day, or hours.
 3. **Preview formal letter:** Formally formatted company leave letter generated in real time.
-4. **Download as PDF:** Generated directly in the browser via jsPDF (runs fully client-side on static hosting).
-5. **Send via Gmail:** Opens Google's account chooser so the employee can select their personal `@gmail.com` account to create a draft addressed to `fuglide@gmail.com` with the formal letter pre-filled. The employee reviews and clicks **Send** in Gmail.
+4. **Submit to Admin for Approval:** The employee submits the request directly to the Admin Portal (`admin.html`).
+5. **Admin Review & Decision:** The administrator views the request in the Admin Dashboard, inspects the letter, and clicks **Approve** or **Not Approve**.
+6. **Live Approval Notification & PDF Unlocking:**
+   - While pending or if rejected, the employee's **"Download letter PDF"** button is disabled with a clear live status banner.
+   - Once approved by the administrator, the status banner turns green ("Approved by Admin") and the **"Download Approved Letter PDF"** button unlocks immediately with the official approval endorsement.
+   - Real-time synchronization works seamlessly across open browser tabs via shared storage and server API.
+7. **Track Status:** Employees can track any request at any time using their unique Reference ID.
 
 ## GitHub Pages Deployment
 
@@ -25,6 +30,8 @@ This portal is hosted statically on GitHub Pages:
 - **Entry point:** `index.html` at the repository root
 - **Static assets:** `styles.css`, `app.js`, `admin.html`, `admin.js`, and `vendor/` are located at the repository root.
 - **Jekyll bypass:** `.nojekyll` is present at the repository root to ensure direct static file delivery.
+- The admin page opens directly in browser-local demo mode. Requests and settings stay in that browser and are not shared with employees or other devices.
+- Shared submissions and approvals require deploying the Node.js backend; GitHub Pages cannot serve `/api` endpoints.
 
 ## Local Development & Node.js Server
 
@@ -45,4 +52,4 @@ npm start
 
 When hosted statically on GitHub Pages, the portal runs 100% client-side. If you deploy the Node.js backend to a cloud host (Render, Railway, Fly.io, Heroku):
 1. Configure `ALLOWED_ORIGINS=https://salmanbca8-haed.github.io` on the backend server.
-2. In the frontend, set your backend HTTPS URL in `admin.html` (saved to browser `localStorage`) or define `window.LEAVE_PORTAL_BACKEND_URL` in `index.html`.
+2. Configure the backend HTTPS URL in the frontend deployment settings with `window.LEAVE_PORTAL_BACKEND_URL` or the `backend-api-url` meta tag in `index.html` and `admin.html`.

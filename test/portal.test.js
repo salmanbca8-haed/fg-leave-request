@@ -89,3 +89,36 @@ test("uses Fuglide company details and CEO as the default letter recipient", () 
   assert.equal(settings.managerDesignation, "T. Hariharan, the Founder and CEO");
   assert.equal(settings.officialEmail, "fuglide@gmail.com");
 });
+
+test("saves request and manages admin approval workflow in store", async () => {
+  const { saveRequest, getRequestByReference, getAllRequests, updateRequestStatus } = require("../src/store");
+  const testRef = "LR-20261027-TESTAPPROVAL01";
+  const dummyRequest = {
+    reference: testRef,
+    fingerprint: "dummyfingerprint123",
+    employee: validRequest,
+    letter: "Dummy formal letter text",
+    submittedAt: new Date().toISOString(),
+    approvalStatus: "pending",
+  };
+
+  await saveRequest("test-key-01", dummyRequest);
+  const fetched = await getRequestByReference(testRef);
+  assert.equal(fetched.reference, testRef);
+  assert.equal(fetched.approvalStatus, "pending");
+
+  // Admin approves
+  const approved = await updateRequestStatus(testRef, "approved", "Approved by HR Director");
+  assert.equal(approved.approvalStatus, "approved");
+  assert.equal(approved.adminRemarks, "Approved by HR Director");
+  assert.ok(approved.decidedAt);
+
+  const all = await getAllRequests();
+  const inAll = all.find((r) => r.reference === testRef);
+  assert.equal(inAll.approvalStatus, "approved");
+
+  // Admin rejects
+  const rejected = await updateRequestStatus(testRef, "rejected", "Capacity full");
+  assert.equal(rejected.approvalStatus, "rejected");
+  assert.equal(rejected.adminRemarks, "Capacity full");
+});

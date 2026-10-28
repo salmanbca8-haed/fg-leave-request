@@ -66,7 +66,35 @@ async function saveRequest(key, request) {
 
 async function getRequestByReference(reference) {
   const store = await readStore();
-  return Object.values(store.requests).find((request) => request.reference === reference) || null;
+  return Object.values(store.requests || {}).find((request) => request.reference === reference) || null;
 }
 
-module.exports = { getSettings, saveSettings, getRequest, saveRequest, getRequestByReference, initialSettings };
+async function getAllRequests() {
+  const store = await readStore();
+  return Object.values(store.requests || {}).sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+}
+
+async function updateRequestStatus(reference, status, adminRemarks = "") {
+  return updateStore((store) => {
+    if (!store.requests) store.requests = {};
+    const entry = Object.entries(store.requests).find(([, req]) => req.reference === reference);
+    if (!entry) return null;
+    const [key, req] = entry;
+    req.approvalStatus = status;
+    req.decidedAt = new Date().toISOString();
+    req.adminRemarks = adminRemarks;
+    store.requests[key] = req;
+    return req;
+  });
+}
+
+module.exports = {
+  getSettings,
+  saveSettings,
+  getRequest,
+  saveRequest,
+  getRequestByReference,
+  getAllRequests,
+  updateRequestStatus,
+  initialSettings,
+};

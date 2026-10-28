@@ -6,7 +6,12 @@ const notice = document.querySelector("#notice");
 const formErrors = document.querySelector("#form-errors");
 const durationValue = document.querySelector("#duration-value");
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const timeFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const leaveRecipient = "fuglide@gmail.com";
+
+let currentRequest = null;
+let statusPollTimer = null;
+
 const previewTemplate = `From:
 
 {{employeeName}}
@@ -28,8 +33,7 @@ I am writing to formally request leave from {{startDate}} to {{endDate}}, for a 
 The reason for my leave is as follows:
 
 {{reason}}
-{{notesBlock}}
-I kindly request you to consider my situation and approve my leave for the above-mentioned period. I will make the necessary arrangements to ensure that my responsibilities and pending tasks are managed appropriately during my absence.
+{{notesBlock}}I kindly request you to consider my situation and approve my leave for the above-mentioned period. I will make the necessary arrangements to ensure that my responsibilities and pending tasks are managed appropriately during my absence.
 
 Please let me know if any additional information or documentation is required. I would be grateful for your consideration and approval of this request.
 
@@ -159,9 +163,8 @@ function validateForm() {
 function getBackendUrl() {
   if (typeof window === "undefined") return "";
   const meta = document.querySelector('meta[name="backend-api-url"]')?.getAttribute("content");
-  const stored = window.localStorage ? window.localStorage.getItem("leave_portal_backend_url") : null;
   const globalVar = window.LEAVE_PORTAL_BACKEND_URL;
-  const url = (globalVar || stored || meta || "").trim();
+  const url = (globalVar || meta || "").trim();
   return url.replace(/\/+$/, "");
 }
 
@@ -189,7 +192,13 @@ async function loadCompany() {
   const isStaticHost = window.location.hostname.endsWith("github.io") || window.location.protocol === "file:";
 
   if (!backend && isStaticHost) {
-    applyCompanySettings(company);
+    try {
+      const stored = localStorage.getItem("fg_company_settings");
+      if (stored) applyCompanySettings(JSON.parse(stored));
+      else applyCompanySettings(company);
+    } catch {
+      applyCompanySettings(company);
+    }
     return;
   }
 
@@ -201,15 +210,22 @@ async function loadCompany() {
     applyCompanySettings(data);
   } catch {
     applyCompanySettings(company);
-    if (backend || !isStaticHost) {
-      showNotice("Company settings could not be loaded. The letter uses the default company details.", "error");
-    }
   }
 }
 
 function showNotice(message, type) {
-  notice.textContent = message;
-  notice.className = `notice ${type}`;
+  let toast = document.querySelector("#portal-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "portal-toast";
+    toast.className = "portal-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = `portal-toast ${type} show`;
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, 4500);
 }
 
 function showPreview() {
@@ -221,16 +237,21 @@ function showPreview() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function saveBrowserPdf(letter, filename) {
+function saveBrowserPdf(letter, filename, approvalDetails = null) {
   const JsPDF = window.jspdf?.jsPDF;
   if (!JsPDF) throw new Error("PDF generator could not be loaded. Refresh the page and try again.");
+
+  let fullContent = letter;
+  if (approvalDetails && approvalDetails.approvalStatus === "approved") {
+    fullContent += `\n\n--------------------------------------------------------------------------------\nOFFICIAL LEAVE APPROVAL ENDORSEMENT\nStatus        : APPROVED BY ADMINISTRATION\nReference ID  : ${approvalDetails.reference}\nDecision Date : ${approvalDetails.decidedAt ? timeFormat.format(new Date(approvalDetails.decidedAt)) : dateFormat.format(new Date())}\nAuthority     : ${company.managerDesignation || "Fuglide Administration"}\nOrganization  : ${company.companyName}\n--------------------------------------------------------------------------------`;
+  }
 
   const pdf = new JsPDF({ unit: "pt", format: "a4" });
   const margin = 56;
   const lineHeight = 16;
   const pageHeight = pdf.internal.pageSize.getHeight();
   const contentWidth = pdf.internal.pageSize.getWidth() - margin * 2;
-  const lines = pdf.splitTextToSize(letter, contentWidth);
+  const lines = pdf.splitTextToSize(fullContent, contentWidth);
   let y = margin;
 
   pdf.setFont("times", "normal");
@@ -253,24 +274,41 @@ document.querySelector("#edit-button").addEventListener("click", () => {
   document.querySelector(".intro").classList.remove("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
+
 document.querySelector("#download-draft").addEventListener("click", async () => {
   const button = document.querySelector("#download-draft");
   button.disabled = true;
   try {
     saveBrowserPdf(letterPreview.textContent, "leave-letter-preview.pdf");
+    showNotice("Draft preview PDF downloaded.", "info");
   } catch (error) {
     showNotice(error.message, "error");
   } finally {
     button.disabled = false;
   }
 });
+
+// Download Final Letter Button Handler
 document.querySelector("#download-final").addEventListener("click", () => {
+  if (!currentRequest) {
+    showNotice("No leave request record found. Please submit a request first.", "error");
+    return;
+  }
+
+  if (currentRequest.approvalStatus !== "approved") {
+    showNotice("This leave letter has not been approved by the admin yet. The download will unlock once approved.", "error");
+    return;
+  }
+
   try {
-    saveBrowserPdf(letterPreview.textContent, "leave-letter.pdf");
+    const filename = `${currentRequest.reference}-approved.pdf`;
+    saveBrowserPdf(currentRequest.letter || letterPreview.textContent, filename, currentRequest);
+    showNotice("Official approved leave letter PDF downloaded successfully!", "success");
   } catch (error) {
     showNotice(error.message, "error");
   }
 });
+
 document.querySelector("#home-button").addEventListener("click", () => window.location.reload());
 
 form.addEventListener("input", (event) => {
@@ -278,6 +316,7 @@ form.addEventListener("input", (event) => {
   else updateLetter();
 });
 form.addEventListener("change", updateDuration);
+
 function escapeHtml(str) {
   if (!str) return "";
   return String(str)
@@ -292,6 +331,10 @@ function populateReceipt(details) {
   const receipt = document.querySelector("#receipt");
   if (!receipt) return;
   receipt.innerHTML = `
+    <div class="receipt-item">
+      <small>Reference Number</small>
+      <strong style="color: var(--secondary-light, #ffd07a); font-family: monospace;">${escapeHtml(details.reference)}</strong>
+    </div>
     <div class="receipt-item">
       <small>Employee Name</small>
       <strong>${escapeHtml(details.name)}</strong>
@@ -313,20 +356,252 @@ function populateReceipt(details) {
       <strong>${escapeHtml(details.duration)} (${escapeHtml(details.leaveType)})</strong>
     </div>
     <div class="receipt-item">
-      <small>Submitted To</small>
-      <strong>${escapeHtml(details.recipient)}</strong>
-    </div>
-    <div class="receipt-item">
-      <small>Submission Date</small>
+      <small>Submission Time</small>
       <strong>${escapeHtml(details.time)}</strong>
     </div>
     <div class="receipt-item">
-      <small>Status</small>
-      <strong style="color: var(--secondary, #f6b84b);">Formal Draft Prepared</strong>
+      <small>Approval Status</small>
+      <strong id="receipt-status-val" class="receipt-status-pill status-${details.status || 'pending'}">
+        ${
+          details.status === "approved"
+            ? "Approved by Admin"
+            : details.status === "rejected"
+            ? "Not Approved"
+            : "Pending Admin Approval"
+        }
+      </strong>
     </div>
   `;
 }
 
+// Generate unique reference string
+function generateReference() {
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  let randHex = "";
+  try {
+    const bytes = new Uint8Array(6);
+    crypto.getRandomValues(bytes);
+    randHex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+  } catch {
+    randHex = Math.random().toString(16).slice(2, 14).toUpperCase();
+  }
+  return `LR-${dateStr}-${randHex}`;
+}
+
+// Save to shared localStorage database for immediate cross-tab sync with Admin Portal
+function saveRequestToLocalDb(request) {
+  try {
+    const raw = localStorage.getItem("fg_leave_requests_db");
+    const db = raw ? JSON.parse(raw) : {};
+    db[request.reference] = request;
+    localStorage.setItem("fg_leave_requests_db", JSON.stringify(db));
+    localStorage.setItem("fg_last_ref", request.reference);
+    localStorage.setItem("fg_leave_sync_event", String(Date.now()));
+  } catch (err) {
+    console.error("Could not write to local storage:", err);
+  }
+}
+
+// Fetch request from local or server
+async function fetchLatestRequest(reference) {
+  let localReq = null;
+  try {
+    const raw = localStorage.getItem("fg_leave_requests_db");
+    if (raw) {
+      const db = JSON.parse(raw);
+      localReq = db[reference] || null;
+    }
+  } catch {}
+
+  const backend = getBackendUrl();
+  const endpoint = backend
+    ? `${backend}/api/requests/${encodeURIComponent(reference)}/status`
+    : `/api/requests/${encodeURIComponent(reference)}/status`;
+
+  try {
+    const res = await fetch(endpoint);
+    if (res.ok) {
+      const serverData = await res.json();
+      return { ...localReq, ...serverData };
+    }
+  } catch {}
+
+  return localReq;
+}
+
+// Update the Employee Success View based on approval status
+function updateApprovalUI(req) {
+  if (!req) return;
+  currentRequest = req;
+
+  const status = req.approvalStatus || "pending";
+  const card = document.querySelector("#approval-status-card");
+  const icon = document.querySelector("#status-icon");
+  const tag = document.querySelector("#status-tag");
+  const refTag = document.querySelector("#status-ref-tag");
+  const title = document.querySelector("#status-title");
+  const desc = document.querySelector("#status-desc");
+  const adminNote = document.querySelector("#status-admin-note");
+  const downloadBtn = document.querySelector("#download-final");
+  const downloadHint = document.querySelector("#download-hint");
+  const receiptStatus = document.querySelector("#receipt-status-val");
+  const pulseText = document.querySelector("#status-pulse-text");
+
+  if (refTag) refTag.textContent = `Ref: ${req.reference}`;
+
+  if (card) {
+    card.classList.remove("status-pending", "status-approved", "status-rejected");
+    card.classList.add(`status-${status}`);
+  }
+
+  if (receiptStatus) {
+    receiptStatus.className = `receipt-status-pill status-${status}`;
+    receiptStatus.textContent =
+      status === "approved"
+        ? "Approved by Admin"
+        : status === "rejected"
+        ? "Not Approved"
+        : "Pending Admin Approval";
+  }
+
+  if (status === "approved") {
+    if (icon) icon.textContent = "✅";
+    if (tag) tag.textContent = "APPROVED BY ADMIN";
+    if (title) title.textContent = "Leave Request Approved!";
+    const dateStr = req.decidedAt ? timeFormat.format(new Date(req.decidedAt)) : "Recently";
+    if (desc) {
+      desc.innerHTML = `Great news! The administrator has <strong>APPROVED</strong> your leave request on <strong>${dateStr}</strong>. You can now download your official approved leave letter PDF below.`;
+    }
+    if (pulseText) pulseText.textContent = `Approved by Administration · Ready for PDF download.`;
+
+    if (downloadBtn) {
+      downloadBtn.disabled = false;
+      downloadBtn.className = "button button-primary button-approved";
+      downloadBtn.innerHTML = `📥 Download Approved Letter PDF`;
+      downloadBtn.title = "Download your official approved letter PDF";
+    }
+
+    if (downloadHint) {
+      downloadHint.textContent = `✔ Your leave letter is approved. Click the green "Download Approved Letter PDF" button above to save your document.`;
+      downloadHint.style.color = "var(--secondary-light, #ffd07a)";
+    }
+
+    if (adminNote) {
+      if (req.adminRemarks) {
+        adminNote.innerHTML = `<strong>Admin Remarks:</strong> ${escapeHtml(req.adminRemarks)}`;
+        adminNote.classList.remove("hidden");
+      } else {
+        adminNote.classList.add("hidden");
+      }
+    }
+  } else if (status === "rejected") {
+    if (icon) icon.textContent = "❌";
+    if (tag) tag.textContent = "NOT APPROVED";
+    if (title) title.textContent = "Leave Request Not Approved";
+    if (desc) {
+      desc.innerHTML = `The administrator has reviewed and <strong>NOT APPROVED</strong> your leave request. The PDF download remains disabled.`;
+    }
+    if (pulseText) pulseText.textContent = `Decision Received: Not approved by administrator.`;
+
+    if (downloadBtn) {
+      downloadBtn.disabled = true;
+      downloadBtn.className = "button button-secondary button-locked button-rejected";
+      downloadBtn.innerHTML = `🔒 Download letter PDF (Not Approved)`;
+      downloadBtn.title = "This leave request was not approved by the admin.";
+    }
+
+    if (downloadHint) {
+      downloadHint.textContent = `This request was not approved by administration. Please consult your reporting manager for further details.`;
+      downloadHint.style.color = "#fca5a5";
+    }
+
+    if (adminNote) {
+      if (req.adminRemarks) {
+        adminNote.innerHTML = `<strong>Admin Remarks:</strong> ${escapeHtml(req.adminRemarks)}`;
+        adminNote.classList.remove("hidden");
+      } else {
+        adminNote.classList.add("hidden");
+      }
+    }
+  } else {
+    // Pending
+    if (icon) icon.textContent = "⏳";
+    if (tag) tag.textContent = "PENDING ADMIN APPROVAL";
+    if (title) title.textContent = "Awaiting Administrator Approval";
+    if (desc) {
+      desc.innerHTML = `Your letter has been sent to the Admin. The <strong>"Download letter PDF"</strong> button below is disabled and will automatically unlock as soon as the admin approves your request.`;
+    }
+    if (pulseText) pulseText.textContent = `Live Sync Active · Waiting for admin decision in Admin Portal…`;
+
+    if (downloadBtn) {
+      downloadBtn.disabled = true;
+      downloadBtn.className = "button button-secondary button-locked";
+      downloadBtn.innerHTML = `🔒 Download letter PDF (Pending Approval)`;
+      downloadBtn.title = "PDF download will unlock once the administrator approves your leave request.";
+    }
+
+    if (downloadHint) {
+      downloadHint.textContent = `Notice: The "Download letter PDF" button will automatically unlock and turn green when the admin approves your request.`;
+      downloadHint.style.color = "var(--text-dim)";
+    }
+
+    if (adminNote) adminNote.classList.add("hidden");
+  }
+}
+
+// Live polling for status
+async function checkCurrentRequestStatus(notify = false) {
+  if (!currentRequest?.reference) return;
+  const updated = await fetchLatestRequest(currentRequest.reference);
+  if (updated) {
+    const prevStatus = currentRequest.approvalStatus;
+    updateApprovalUI(updated);
+    if (notify && updated.approvalStatus !== prevStatus) {
+      if (updated.approvalStatus === "approved") {
+        showNotice("Congratulations! Your leave letter has been approved by the Admin!", "success");
+      } else if (updated.approvalStatus === "rejected") {
+        showNotice("Your leave letter was not approved by the Admin.", "error");
+      }
+    }
+  }
+}
+
+function startStatusPolling() {
+  if (statusPollTimer) clearInterval(statusPollTimer);
+  statusPollTimer = setInterval(() => {
+    if (currentRequest && currentRequest.approvalStatus === "pending") {
+      checkCurrentRequestStatus(true);
+    }
+  }, 2500);
+}
+
+// Storage event listener for instantaneous cross-tab updates from Admin Portal
+window.addEventListener("storage", (event) => {
+  if (event.key === "fg_leave_requests_db" || event.key === "fg_leave_sync_event") {
+    if (currentRequest?.reference) {
+      checkCurrentRequestStatus(true);
+    }
+  }
+});
+
+// Manual Refresh Status button in card
+document.querySelector("#check-status-btn")?.addEventListener("click", async () => {
+  const btn = document.querySelector("#check-status-btn");
+  btn.disabled = true;
+  await checkCurrentRequestStatus(false);
+  setTimeout(() => {
+    btn.disabled = false;
+  }, 600);
+  if (currentRequest?.approvalStatus === "approved") {
+    showNotice("Status verified: Approved by Admin!", "success");
+  } else if (currentRequest?.approvalStatus === "rejected") {
+    showNotice("Status verified: Not Approved.", "info");
+  } else {
+    showNotice("Status checked: Still pending administrator review.", "info");
+  }
+});
+
+// Send Button: submits to Admin and opens success view
 document.querySelector("#send-button").addEventListener("click", (event) => {
   if (!validateForm()) {
     previewSection.classList.add("hidden");
@@ -339,73 +614,254 @@ document.querySelector("#send-button").addEventListener("click", (event) => {
   const employeeName = fieldValue("name");
   const employeeId = fieldValue("id");
   const employeeEmail = fieldValue("email");
+  const department = fieldValue("department");
   const startVal = fieldValue("startDate");
   const endVal = fieldValue("endDate");
   const leaveTypeVal = fieldValue("leaveType");
+  const unitVal = fieldValue("unit");
+  const hoursVal = unitVal === "hours" ? fieldValue("hours") : "";
+  const reasonVal = fieldValue("reason");
+  const notesVal = fieldValue("notes");
   const datesText = `${prettyDate(startVal)} to ${prettyDate(endVal)}`;
   const durationVal = durationText();
+  const letterText = letterPreview.textContent;
 
+  const reference = generateReference();
+  const submittedAt = new Date().toISOString();
+
+  // Create full request object
+  const requestRecord = {
+    reference,
+    employee: {
+      name: employeeName,
+      id: employeeId,
+      email: employeeEmail,
+      department,
+      startDate: startVal,
+      endDate: endVal,
+      leaveType: leaveTypeVal,
+      unit: unitVal,
+      hours: hoursVal,
+      duration: durationVal,
+      reason: reasonVal,
+      notes: notesVal,
+    },
+    letter: letterText,
+    submittedAt,
+    approvalStatus: "pending",
+    decidedAt: null,
+    adminRemarks: "",
+  };
+
+  currentRequest = requestRecord;
+
+  // 1. Immediately store in localStorage so Admin Portal gets it instantaneously
+  saveRequestToLocalDb(requestRecord);
+
+  // 2. Also send to server API if available
+  const backend = getBackendUrl();
+  const submitUrl = backend ? `${backend}/api/requests` : "/api/requests";
+  fetch(submitUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": crypto.randomUUID ? crypto.randomUUID() : reference,
+    },
+    body: JSON.stringify({
+      name: employeeName,
+      id: employeeId,
+      email: employeeEmail,
+      department,
+      startDate: startVal,
+      endDate: endVal,
+      leaveType: leaveTypeVal,
+      unit: unitVal,
+      hours: hoursVal ? Number(hoursVal) : undefined,
+      reason: reasonVal,
+      notes: notesVal,
+    }),
+  })
+    .then(async (res) => {
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reference) {
+          requestRecord.reference = data.reference;
+          saveRequestToLocalDb(requestRecord);
+        }
+      }
+    })
+    .catch(() => {
+      // Local database is already stored safely
+    });
+
+  // 3. Prepare optional Gmail draft links
   const subject = `Leave Request — ${employeeName} (${employeeId}) — ${datesText}`;
-  const body = `${letterPreview.textContent}\n\nLeave type: ${leaveTypeVal}`;
-
+  const body = `${letterText}\n\nRequest Reference: ${reference}\nLeave type: ${leaveTypeVal}`;
   const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(leaveRecipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   const accountChooserUrl = `https://accounts.google.com/AccountChooser?service=mail&continue=${encodeURIComponent(composeUrl)}`;
-  const mailtoUrl = `mailto:${encodeURIComponent(leaveRecipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
   const targetUrl = accountChooserUrl.length < 2400 ? accountChooserUrl : composeUrl;
-
-  let newTabOpened = false;
-  try {
-    const openedWindow = window.open(targetUrl, "_blank");
-    if (openedWindow && !openedWindow.closed && typeof openedWindow.closed !== "undefined") {
-      newTabOpened = true;
-    }
-  } catch {
-    newTabOpened = false;
-  }
-
-  populateReceipt({
-    name: employeeName,
-    id: employeeId,
-    email: employeeEmail,
-    dates: datesText,
-    duration: durationVal,
-    leaveType: leaveTypeVal,
-    recipient: leaveRecipient,
-    time: dateFormat.format(new Date()),
-  });
 
   const successGmailLink = document.querySelector("#success-gmail-link");
   if (successGmailLink) {
     successGmailLink.href = targetUrl;
   }
 
-  const mailtoLink = document.querySelector("#success-mailto-link");
-  if (mailtoLink) {
-    mailtoLink.href = mailtoUrl;
-  }
+  // 4. Update UI to success section with pending status
+  populateReceipt({
+    reference,
+    name: employeeName,
+    id: employeeId,
+    email: employeeEmail,
+    dates: datesText,
+    duration: durationVal,
+    leaveType: leaveTypeVal,
+    time: timeFormat.format(new Date()),
+    status: "pending",
+  });
+
+  updateApprovalUI(requestRecord);
 
   previewSection.classList.add("hidden");
   successSection.classList.remove("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
 
-  if (newTabOpened) {
-    showNotice(`Gmail draft opened addressed to ${leaveRecipient}. Review it and press Send in Gmail.`, "success");
-  } else {
-    showNotice(`Your leave request is prepared. Click "Open Gmail Draft" below to launch your email in Gmail.`, "info");
-  }
+  showNotice(`Leave request submitted to Admin! Reference: ${reference}. Awaiting approval.`, "info");
+
+  // Start polling
+  startStatusPolling();
 });
 
 const copyBtn = document.querySelector("#copy-letter-button");
 if (copyBtn) {
   copyBtn.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(letterPreview.textContent);
+      const text = currentRequest?.letter || letterPreview.textContent;
+      await navigator.clipboard.writeText(text);
       showNotice("Leave letter text copied to clipboard!", "success");
     } catch {
       showNotice("Could not copy automatically. You can copy the text from the preview.", "info");
     }
   });
+}
+
+// Track Modal Handling
+const trackBtn = document.querySelector("#nav-track-btn");
+const trackModal = document.querySelector("#track-modal");
+const closeTrackBtn = document.querySelector("#close-track-modal");
+const trackForm = document.querySelector("#track-form");
+const trackInput = document.querySelector("#track-ref-input");
+const trackResult = document.querySelector("#track-result");
+
+if (trackBtn && trackModal) {
+  trackBtn.addEventListener("click", () => {
+    const lastRef = localStorage.getItem("fg_last_ref");
+    if (lastRef && trackInput) trackInput.value = lastRef;
+    trackModal.classList.remove("hidden");
+    trackInput?.focus();
+  });
+}
+
+if (closeTrackBtn && trackModal) {
+  closeTrackBtn.addEventListener("click", () => {
+    trackModal.classList.add("hidden");
+  });
+}
+
+if (trackModal) {
+  trackModal.addEventListener("click", (e) => {
+    if (e.target === trackModal) trackModal.classList.add("hidden");
+  });
+}
+
+if (trackForm) {
+  trackForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const ref = (trackInput.value || "").trim();
+    if (!ref) return;
+
+    trackResult.innerHTML = `<p style="color: var(--text-dim);">Checking request status for <strong>${escapeHtml(ref)}</strong>…</p>`;
+    trackResult.classList.remove("hidden");
+
+    const req = await fetchLatestRequest(ref);
+    if (!req) {
+      trackResult.innerHTML = `
+        <div class="track-card status-rejected">
+          <p>❌ No leave request found with reference <strong>${escapeHtml(ref)}</strong>. Please verify the ID.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const status = req.approvalStatus || "pending";
+    const statusText =
+      status === "approved"
+        ? "✅ Approved by Admin"
+        : status === "rejected"
+        ? "❌ Not Approved"
+        : "⏳ Pending Admin Approval";
+
+    trackResult.innerHTML = `
+      <div class="track-card status-${status}">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong style="color: #ffffff;">${escapeHtml(req.employee?.name || "Employee")} (${escapeHtml(req.employee?.id || "")})</strong>
+          <span class="status-pill status-${status}">${statusText}</span>
+        </div>
+        <p style="font-size: 0.88rem; color: var(--text-dim); margin-bottom: 0.75rem;">
+          <strong>Dates:</strong> ${escapeHtml(req.employee?.startDate || "")} to ${escapeHtml(req.employee?.endDate || "")} (${escapeHtml(req.employee?.duration || "")})
+        </p>
+        ${
+          req.adminRemarks
+            ? `<p style="font-size: 0.84rem; color: #ffd07a; margin-bottom: 0.75rem;"><strong>Admin Remarks:</strong> ${escapeHtml(req.adminRemarks)}</p>`
+            : ""
+        }
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          ${
+            status === "approved"
+              ? `<button class="button button-primary button-sm" type="button" id="modal-download-btn">📥 Download Approved PDF</button>`
+              : `<button class="button button-secondary button-sm" type="button" disabled>🔒 PDF Locked (Awaiting Approval)</button>`
+          }
+          <button class="button button-secondary button-sm" type="button" id="modal-view-details">Open in Page</button>
+        </div>
+      </div>
+    `;
+
+    document.querySelector("#modal-download-btn")?.addEventListener("click", () => {
+      saveBrowserPdf(req.letter, `${req.reference}-approved.pdf`, req);
+    });
+
+    document.querySelector("#modal-view-details")?.addEventListener("click", () => {
+      trackModal.classList.add("hidden");
+      currentRequest = req;
+      populateReceipt({
+        reference: req.reference,
+        name: req.employee?.name || "",
+        id: req.employee?.id || "",
+        email: req.employee?.email || "",
+        dates: `${prettyDate(req.employee?.startDate)} to ${prettyDate(req.employee?.endDate)}`,
+        duration: req.employee?.duration || "",
+        leaveType: req.employee?.leaveType || "",
+        time: formatPrettyDate(req.submittedAt),
+        status: req.approvalStatus,
+      });
+      updateApprovalUI(req);
+      form.closest(".portal-layout").classList.add("hidden");
+      document.querySelector(".intro").classList.add("hidden");
+      previewSection.classList.add("hidden");
+      successSection.classList.remove("hidden");
+      startStatusPolling();
+    });
+  });
+}
+
+function formatPrettyDate(isoString) {
+  if (!isoString) return "—";
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return isoString;
+    return timeFormat.format(date);
+  } catch {
+    return isoString;
+  }
 }
 
 loadCompany();

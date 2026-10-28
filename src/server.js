@@ -112,8 +112,10 @@ function safeEqual(first, second) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
 function sign(value) {
-  return crypto.createHmac("sha256", process.env.SESSION_SECRET).update(value).digest("base64url");
+  return crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("base64url");
 }
 
 function createAdminToken() {
@@ -122,7 +124,7 @@ function createAdminToken() {
 }
 
 function isAdminTokenValid(token) {
-  if (!token || !process.env.SESSION_SECRET) return false;
+  if (!token || !SESSION_SECRET) return false;
   const [payload, signature, ...extra] = token.split(".");
   if (!payload || !signature || extra.length || !safeEqual(signature, sign(payload))) return false;
   try {
@@ -169,7 +171,7 @@ app.get("/api/settings", async (_request, response, next) => {
 
 app.post("/api/admin/login", loginLimiter, verifySameOrigin, (request, response) => {
   const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword || !process.env.SESSION_SECRET) {
+  if (!adminPassword || !SESSION_SECRET) {
     return response.status(503).json({ error: "Administrator authentication is not configured on this server." });
   }
   const password = typeof request.body?.password === "string" ? request.body.password : "";
@@ -316,16 +318,13 @@ async function deliverRequest(key, fingerprint, employee, settings, mailer, from
   } catch (error) {
     console.error("Could not save email confirmation status:", error.message);
   }
-  return { reference, employee, submittedAt: record.submittedAt, approvalStatus: record.approvalStatus };
+  return { reference, employee, submittedAt: record.submittedAt, approvalStatus: record.approvalStatus, letter: record.letter };
 }
 
 app.post("/api/requests", submissionLimiter, verifySameOrigin, async (request, response, next) => {
   const { errors, value } = validateRequest(request.body);
   if (Object.keys(errors).length) return response.status(400).json({ error: "Please correct the highlighted fields.", fields: errors });
-  const key = request.get("Idempotency-Key");
-  if (!key || !/^[0-9a-f-]{36}$/i.test(key)) {
-    return response.status(400).json({ error: "Refresh the page before submitting your request." });
-  }
+  const key = request.get("Idempotency-Key") || crypto.randomUUID();
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
   try {
@@ -341,30 +340,39 @@ app.post("/api/requests", submissionLimiter, verifySameOrigin, async (request, r
           error.status = 409;
           throw error;
         }
-        if (existing?.emailStatus === "sent") {
+        if (existing?.submittedAt) {
           return {
             reference: existing.reference,
             employee: existing.employee,
             submittedAt: existing.submittedAt,
-            approvalStatus: existing.approvalStatus,
+            approvalStatus: existing.approvalStatus || "pending",
+            letter: existing.letter,
           };
         }
-        if (existing?.emailStatus === "sending") {
-          const error = new Error("This request's delivery status is uncertain. Please contact your administrator before retrying.");
-          error.status = 409;
-          throw error;
-        }
         const settings = await store.getSettings();
-        if (!settings.companyName || !settings.officialEmail || !settings.address || !settings.managerDesignation) {
-          const error = new Error("Company settings are incomplete. Please contact your administrator.");
-          error.status = 503;
-          throw error;
-        }
         const email = configuredSmtp();
         if (!email) {
-          const error = new Error("Email delivery is not configured on this server. Please contact your administrator.");
-          error.status = 503;
-          throw error;
+          const submittedAt = new Date();
+          const reference = createReference();
+          const letter = createLetter(value, settings, submittedAt);
+          const record = {
+            reference,
+            fingerprint,
+            employee: value,
+            letter,
+            submittedAt: submittedAt.toISOString(),
+            emailStatus: "offline_or_client",
+            approvalStatus: "pending",
+          };
+          completedRequests.set(key, record);
+          await store.saveRequest(key, record);
+          return {
+            reference,
+            employee: value,
+            submittedAt: record.submittedAt,
+            approvalStatus: record.approvalStatus,
+            letter: record.letter,
+          };
         }
         return deliverRequest(key, fingerprint, value, settings, email.transporter, email.from);
       })();
@@ -382,6 +390,65 @@ app.post("/api/requests", submissionLimiter, verifySameOrigin, async (request, r
     }
   } catch (error) {
     return next(error);
+  }
+});
+
+app.get("/api/requests/:reference/status", async (request, response, next) => {
+  try {
+    const inMemoryRecord = [...completedRequests.values()].find((item) => item.reference === request.params.reference);
+    const record = inMemoryRecord || await store.getRequestByReference(request.params.reference);
+    if (!record) return response.status(404).json({ error: "Leave request not found." });
+    return response.json({
+      reference: record.reference,
+      approvalStatus: record.approvalStatus || "pending",
+      submittedAt: record.submittedAt,
+      decidedAt: record.decidedAt || null,
+      adminRemarks: record.adminRemarks || "",
+      employee: {
+        name: record.employee?.name || "",
+        id: record.employee?.id || "",
+        department: record.employee?.department || "",
+        startDate: record.employee?.startDate || "",
+        endDate: record.employee?.endDate || "",
+        duration: record.employee?.duration || "",
+        leaveType: record.employee?.leaveType || "",
+      },
+      letter: record.letter,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/requests", requireAdmin, async (_request, response, next) => {
+  try {
+    const requests = await store.getAllRequests();
+    return response.json(requests);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/admin/requests/:reference/status", requireAdmin, verifySameOrigin, async (request, response, next) => {
+  try {
+    const { status, remarks } = request.body || {};
+    if (status !== "approved" && status !== "rejected" && status !== "pending") {
+      return response.status(400).json({ error: "Invalid status. Must be approved, rejected, or pending." });
+    }
+    const updated = await store.updateRequestStatus(request.params.reference, status, remarks || "");
+    if (!updated) return response.status(404).json({ error: "Request reference not found." });
+
+    for (const [key, val] of completedRequests.entries()) {
+      if (val.reference === request.params.reference) {
+        val.approvalStatus = status;
+        val.decidedAt = updated.decidedAt;
+        val.adminRemarks = updated.adminRemarks;
+        completedRequests.set(key, val);
+      }
+    }
+    return response.json({ success: true, request: updated });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -403,9 +470,12 @@ app.get("/api/requests/:reference/pdf", pdfLimiter, async (request, response, ne
   try {
     const inMemoryRecord = [...completedRequests.values()].find((item) => item.reference === request.params.reference);
     const record = inMemoryRecord || await store.getRequestByReference(request.params.reference);
-    if (!record || record.emailStatus !== "sent") return response.status(404).json({ error: "Request letter not found." });
+    if (!record) return response.status(404).json({ error: "Request letter not found." });
+    if (record.approvalStatus !== "approved") {
+      return response.status(403).json({ error: "This leave request has not been approved by the administrator." });
+    }
     response.setHeader("Content-Type", "application/pdf");
-    response.setHeader("Content-Disposition", `attachment; filename="${record.reference}.pdf"`);
+    response.setHeader("Content-Disposition", `attachment; filename="${record.reference}-approved.pdf"`);
     const pdf = new PDFDocument({ margin: 64, size: "A4" });
     pdf.on("error", next);
     pdf.pipe(response);

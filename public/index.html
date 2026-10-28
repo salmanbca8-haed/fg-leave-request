@@ -47,7 +47,8 @@
       </a>
       <nav class="nav-links">
         <a class="nav-link active" href="#request">Submit a request</a>
-        <a class="admin-link" href="admin.html">Administrator</a>
+        <button class="nav-link" id="nav-track-btn" type="button">Track Status</button>
+        <a class="nav-link" href="admin.html">Admin Portal →</a>
       </nav>
     </div>
   </header>
@@ -59,7 +60,7 @@
       <p>Submit your leave request and review the formal letter before it goes to company.</p>
     </section>
 
-    <div id="notice" class="notice hidden" role="status" aria-live="polite"></div>
+    <!-- <div id="notice" class="notice hidden" role="status" aria-live="polite"></div> -->
 
     <section id="request" class="portal-layout">
       <form id="leave-form" class="panel form-panel" novalidate>
@@ -139,26 +140,77 @@
       <div class="preview-footer">
         <button class="button button-secondary" id="edit-button" type="button">← Edit details</button>
         <div>
-          <button class="button button-secondary" id="download-draft" type="button">Download as PDF</button>
-          <button class="button button-primary" id="send-button" type="button">Send <span aria-hidden="true">→</span></button>
+          <button class="button button-secondary" id="download-draft" type="button">Download Draft Preview</button>
+          <button class="button button-primary" id="send-button" type="button">Send to Admin for Approval <span aria-hidden="true">→</span></button>
         </div>
       </div>
-      <p class="submission-disclaimer">Send opens Google's account chooser. Select your personal @gmail.com account, review the draft addressed to fuglide@gmail.com, then press Send in Gmail.</p>
+      <p class="submission-disclaimer">Sending submits your formal leave letter directly to the administrator portal for review. Once the administrator approves your request, the official "Download letter PDF" button unlocks immediately.</p>
     </section>
+
+    <!-- Track Request Modal / Drawer -->
+    <div id="track-modal" class="track-modal hidden" role="dialog" aria-modal="true" aria-labelledby="track-title">
+      <div class="track-modal-card">
+        <div class="track-modal-header">
+          <h3 id="track-title">Track Leave Request Status</h3>
+          <button id="close-track-modal" class="button-close" type="button" aria-label="Close tracking">✕</button>
+        </div>
+        <p class="track-modal-desc">Enter your unique Request Reference number (e.g. <code>LR-20261027-...</code>) to check if your leave letter has been approved by the admin.</p>
+        <form id="track-form" class="track-form">
+          <div class="field">
+            <span>Request Reference ID</span>
+            <input id="track-ref-input" type="text" placeholder="e.g. LR-20261027-A1B2C3D4" required>
+          </div>
+          <button class="button button-primary" type="submit">Check Status</button>
+        </form>
+        <div id="track-result" class="track-result hidden"></div>
+      </div>
+    </div>
 
     <section id="success-section" class="panel success-panel hidden" aria-live="polite">
       <div class="success-icon"><svg viewBox="0 0 32 32"><path d="m8 16 5 5L24 10"/></svg></div>
-      <span class="step-label">REQUEST RECEIVED</span>
-      <h2>Your leave request has been submitted successfully.</h2>
-      <p class="success-copy">Your request has been sent to fuglide for review. This confirmation is not an approval. Wait for Return letter</p>
-      <div id="receipt" class="receipt"></div>
-      <div class="success-actions">
-        <a id="success-gmail-link" class="button button-primary" href="#" target="_blank" rel="noopener noreferrer">Open Gmail Draft <span aria-hidden="true">↗</span></a>
-        <a id="success-mailto-link" class="button button-secondary" href="#">Default Mail App</a>
-        <button class="button button-secondary" id="download-final" type="button">Download letter PDF</button>
-        <button class="button button-secondary" id="copy-letter-button" type="button">Copy Letter Text</button>
-        <button class="button button-secondary" id="home-button" type="button">Return to home</button>
+      <span class="step-label" id="success-step-label">REQUEST SUBMITTED</span>
+      <h2 id="success-headline">Your leave request has been submitted to the Admin.</h2>
+      <p class="success-copy" id="success-copy">Your formal letter has been sent to the Fuglide administrator for review. Please wait for admin approval.</p>
+
+      <!-- Dynamic Live Approval Status Banner -->
+      <div id="approval-status-card" class="approval-status-card status-pending">
+        <div class="status-card-inner">
+          <div class="status-icon-wrap" id="status-icon-wrap">
+            <span id="status-icon" class="status-icon-symbol">⏳</span>
+          </div>
+          <div class="status-details">
+            <div class="status-badge-row">
+              <span class="status-tag" id="status-tag">PENDING ADMIN APPROVAL</span>
+              <span class="status-ref-tag" id="status-ref-tag">Ref: LR-XXXXXXXX</span>
+            </div>
+            <h3 id="status-title">Awaiting Administrator Approval</h3>
+            <p id="status-desc">Your formal letter has been sent to the Admin. The <strong>"Download letter PDF"</strong> button below is disabled and will automatically unlock as soon as the admin approves your request.</p>
+            <div id="status-admin-note" class="status-admin-note hidden"></div>
+          </div>
+          <button class="button button-secondary status-refresh-btn" id="check-status-btn" type="button" title="Check approval status now">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <span>Refresh Status</span>
+          </button>
+        </div>
+        <div class="status-pulse-bar">
+          <span class="pulse-indicator"></span>
+          <span id="status-pulse-text">Live Sync Active · Checking for admin decision in real time…</span>
+        </div>
       </div>
+
+      <div id="receipt" class="receipt"></div>
+
+      <div class="success-actions">
+        <button class="button button-secondary button-locked" id="download-final" type="button" disabled title="Locked: Awaiting Admin Approval">
+          🔒 Download letter PDF (Pending Approval)
+        </button>
+        <a id="success-gmail-link" class="button button-secondary" href="#" target="_blank" rel="noopener noreferrer">Optional: Open in Gmail <span aria-hidden="true">↗</span></a>
+        <button class="button button-secondary" id="copy-letter-button" type="button">Copy Letter Text</button>
+        <button class="button button-secondary" id="home-button" type="button">Submit Another Request</button>
+      </div>
+      <p id="download-hint" class="admin-hint" style="text-align: center; margin-top: 1rem;">
+        Notice: The "Download letter PDF" button will automatically unlock and turn green when the admin approves your request.
+      </p>
     </section>
   </main>
 
@@ -175,7 +227,7 @@
         <h3 class="footer-heading">Portal Navigation</h3>
         <ul class="footer-nav-list">
           <li class="footer-nav-item"><a class="footer-nav-link" href="#request"><svg class="footer-link-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>Submit Leave Request</a></li>
-          <li class="footer-nav-item"><a class="footer-nav-link" href="admin.html"><svg class="footer-link-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>Administrator Portal</a></li>
+          <!-- <li class="footer-nav-item"><a class="footer-nav-link" href="admin.html"><svg class="footer-link-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>Administrator Portal</a></li> -->
           <li class="footer-nav-item"><a class="footer-nav-link" href="README.md" target="_blank"><svg class="footer-link-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>Documentation</a></li>
         </ul>
       </div>
@@ -208,7 +260,6 @@
     <div class="footer-bottom">
       <div class="container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; width: 100%;">
         <p>&copy; 2026 Fuglide Innovation Intelligence Network. All rights reserved.</p>
-        <span class="footer-tagline-pill">People Operations Made Simpler.</span>
       </div>
     </div>
   </footer>
