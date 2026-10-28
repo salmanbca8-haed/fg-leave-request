@@ -14,12 +14,12 @@ A responsive employee leave request portal for **Fuglide Innovation Intelligence
 1. **Fill out the request:** Enter employee full name, ID, email, dates, leave type, and reason.
 2. **Calculate duration:** Real-time calculation of calendar days, half-day, or hours.
 3. **Preview formal letter:** Formally formatted company leave letter generated in real time.
-4. **Submit to Admin for Approval:** The employee submits the request directly to the Admin Portal (`admin.html`).
+4. **Submit the request:** With a configured backend, the request is stored in the shared admin inbox. On GitHub Pages without a backend, it is saved only in that browser's local storage; it is not sent to an administrator.
 5. **Admin Review & Decision:** The administrator views the request in the Admin Dashboard, inspects the letter, and clicks **Approve** or **Not Approve**.
 6. **Live Approval Notification & PDF Unlocking:**
    - While pending or if rejected, the employee's **"Download letter PDF"** button is disabled with a clear live status banner.
    - Once approved by the administrator, the status banner turns green ("Approved by Admin") and the **"Download Approved Letter PDF"** button unlocks immediately with the official approval endorsement.
-   - Real-time synchronization works seamlessly across open browser tabs via shared storage and server API.
+   - With a backend, requests and decisions are shared through the server. In browser-local demo mode, changes sync only between tabs using the same browser profile and exact website origin.
 7. **Track Status:** Employees can track any request at any time using their unique Reference ID.
 
 ## GitHub Pages Deployment
@@ -30,7 +30,7 @@ This portal is hosted statically on GitHub Pages:
 - **Entry point:** `index.html` at the repository root
 - **Static assets:** `styles.css`, `app.js`, `admin.html`, `admin.js`, and `vendor/` are located at the repository root.
 - **Jekyll bypass:** `.nojekyll` is present at the repository root to ensure direct static file delivery.
-- The admin page opens directly in browser-local demo mode. Requests and settings stay in that browser and are not shared with employees or other devices.
+- The admin page opens directly in browser-local demo mode. Requests and settings stay in that browser and exact website origin; they are not shared with other browsers, devices, or `file://` pages.
 - Shared submissions and approvals require deploying the Node.js backend; GitHub Pages cannot serve `/api` endpoints.
 
 ## Local Development & Node.js Server

@@ -168,6 +168,10 @@ function getBackendUrl() {
   return url.replace(/\/+$/, "");
 }
 
+function isBrowserLocalMode() {
+  return window.location.hostname.endsWith("github.io") || window.location.protocol === "file:";
+}
+
 function applyCompanySettings(data) {
   company = { ...company, ...data };
   const companyName = company.companyName || "Fuglide Innovation Intelligence Network";
@@ -189,9 +193,7 @@ function applyCompanySettings(data) {
 
 async function loadCompany() {
   const backend = getBackendUrl();
-  const isStaticHost = window.location.hostname.endsWith("github.io") || window.location.protocol === "file:";
-
-  if (!backend && isStaticHost) {
+  if (isBrowserLocalMode()) {
     try {
       const stored = localStorage.getItem("fg_company_settings");
       if (stored) applyCompanySettings(JSON.parse(stored));
@@ -397,8 +399,10 @@ function saveRequestToLocalDb(request) {
     localStorage.setItem("fg_leave_requests_db", JSON.stringify(db));
     localStorage.setItem("fg_last_ref", request.reference);
     localStorage.setItem("fg_leave_sync_event", String(Date.now()));
+    return true;
   } catch (err) {
     console.error("Could not write to local storage:", err);
+    return false;
   }
 }
 
@@ -412,6 +416,8 @@ async function fetchLatestRequest(reference) {
       localReq = db[reference] || null;
     }
   } catch {}
+
+  if (isBrowserLocalMode()) return localReq;
 
   const backend = getBackendUrl();
   const endpoint = backend
@@ -529,9 +535,15 @@ function updateApprovalUI(req) {
     if (tag) tag.textContent = "PENDING ADMIN APPROVAL";
     if (title) title.textContent = "Awaiting Administrator Approval";
     if (desc) {
-      desc.innerHTML = `Your letter has been sent to the Admin. The <strong>"Download letter PDF"</strong> button below is disabled and will automatically unlock as soon as the admin approves your request.`;
+      desc.innerHTML = isBrowserLocalMode()
+        ? `This request is saved only in this browser. To review it, open the Admin Portal in this same browser at the same website address. It is not shared with other browsers or devices.`
+        : `Your letter has been sent to the Admin. The <strong>"Download letter PDF"</strong> button below is disabled and will automatically unlock as soon as the admin approves your request.`;
     }
-    if (pulseText) pulseText.textContent = `Live Sync Active · Waiting for admin decision in Admin Portal…`;
+    if (pulseText) {
+      pulseText.textContent = isBrowserLocalMode()
+        ? `Browser-only demo · Requests are not synced to a shared admin inbox`
+        : `Live Sync Active · Waiting for admin decision in Admin Portal…`;
+    }
 
     if (downloadBtn) {
       downloadBtn.disabled = true;
@@ -655,44 +667,50 @@ document.querySelector("#send-button").addEventListener("click", (event) => {
 
   currentRequest = requestRecord;
 
-  // 1. Immediately store in localStorage so Admin Portal gets it instantaneously
-  saveRequestToLocalDb(requestRecord);
+  // 1. Save locally for same-browser demo use and cross-tab updates.
+  const savedLocally = saveRequestToLocalDb(requestRecord);
+  if (!savedLocally && isBrowserLocalMode()) {
+    showNotice("The request could not be saved in this browser. Check browser storage settings and try again.", "error");
+    return;
+  }
 
   // 2. Also send to server API if available
   const backend = getBackendUrl();
-  const submitUrl = backend ? `${backend}/api/requests` : "/api/requests";
-  fetch(submitUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": crypto.randomUUID ? crypto.randomUUID() : reference,
-    },
-    body: JSON.stringify({
-      name: employeeName,
-      id: employeeId,
-      email: employeeEmail,
-      department,
-      startDate: startVal,
-      endDate: endVal,
-      leaveType: leaveTypeVal,
-      unit: unitVal,
-      hours: hoursVal ? Number(hoursVal) : undefined,
-      reason: reasonVal,
-      notes: notesVal,
-    }),
-  })
-    .then(async (res) => {
-      if (res.ok) {
-        const data = await res.json();
-        if (data.reference) {
-          requestRecord.reference = data.reference;
-          saveRequestToLocalDb(requestRecord);
-        }
-      }
+  if (!isBrowserLocalMode()) {
+    const submitUrl = backend ? `${backend}/api/requests` : "/api/requests";
+    fetch(submitUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID ? crypto.randomUUID() : reference,
+      },
+      body: JSON.stringify({
+        name: employeeName,
+        id: employeeId,
+        email: employeeEmail,
+        department,
+        startDate: startVal,
+        endDate: endVal,
+        leaveType: leaveTypeVal,
+        unit: unitVal,
+        hours: hoursVal ? Number(hoursVal) : undefined,
+        reason: reasonVal,
+        notes: notesVal,
+      }),
     })
-    .catch(() => {
-      // Local database is already stored safely
-    });
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          if (data.reference) {
+            requestRecord.reference = data.reference;
+            saveRequestToLocalDb(requestRecord);
+          }
+        }
+      })
+      .catch(() => {
+        // Local database is already stored safely
+      });
+  }
 
   // 3. Prepare optional Gmail draft links
   const subject = `Leave Request — ${employeeName} (${employeeId}) — ${datesText}`;
@@ -707,6 +725,14 @@ document.querySelector("#send-button").addEventListener("click", (event) => {
   }
 
   // 4. Update UI to success section with pending status
+  const successHeadline = document.querySelector("#success-headline");
+  const successCopy = document.querySelector("#success-copy");
+  const successStepLabel = document.querySelector("#success-step-label");
+  if (isBrowserLocalMode()) {
+    if (successHeadline) successHeadline.textContent = "Leave request saved in this browser.";
+    if (successCopy) successCopy.textContent = "This GitHub Pages demo does not send requests to an administrator. Open the Admin Portal in this same browser and at the same website address to review this request.";
+    if (successStepLabel) successStepLabel.textContent = "SAVED LOCALLY";
+  }
   populateReceipt({
     reference,
     name: employeeName,
@@ -725,7 +751,12 @@ document.querySelector("#send-button").addEventListener("click", (event) => {
   successSection.classList.remove("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
 
-  showNotice(`Leave request submitted to Admin! Reference: ${reference}. Awaiting approval.`, "info");
+  showNotice(
+    isBrowserLocalMode()
+      ? `Request saved in this browser. Reference: ${reference}.`
+      : `Leave request submitted to Admin! Reference: ${reference}. Awaiting approval.`,
+    "info",
+  );
 
   // Start polling
   startStatusPolling();

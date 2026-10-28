@@ -203,7 +203,9 @@ function renderRequests() {
         <h3>No ${currentFilter === "all" ? "" : currentFilter + " "}requests match</h3>
         <p>${
           requestsData.length === 0
-            ? "When employees submit leave letters, they will appear here in real time for approval."
+            ? isStaticMode()
+              ? "Browser-local demo: requests appear only when submitted in this same browser and at this exact website address. They are not shared across browsers or devices."
+              : "When employees submit leave letters, they will appear here in real time for approval."
             : "Try clearing your search query or choosing another filter above."
         }</p>
       </div>
@@ -588,7 +590,7 @@ setInterval(() => {
 if (isStaticMode()) {
   document.querySelector("#logout-button")?.classList.add("hidden");
   const syncStatus = document.querySelector("#sync-status-indicator");
-  if (syncStatus) syncStatus.textContent = "Local demo - changes saved in this browser only";
+  if (syncStatus) syncStatus.textContent = "Local demo - visible only in this browser and website address";
   showDashboard();
 } else if (sessionStorage.getItem("leave_admin_auth") === "true") {
   showDashboard();

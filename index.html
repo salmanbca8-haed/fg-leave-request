@@ -169,8 +169,8 @@
     <section id="success-section" class="panel success-panel hidden" aria-live="polite">
       <div class="success-icon"><svg viewBox="0 0 32 32"><path d="m8 16 5 5L24 10"/></svg></div>
       <span class="step-label" id="success-step-label">REQUEST SUBMITTED</span>
-      <h2 id="success-headline">Your leave request has been submitted to the Admin.</h2>
-      <p class="success-copy" id="success-copy">Your formal letter has been sent to the Fuglide administrator for review. Please wait for admin approval.</p>
+      <h2 id="success-headline">Your leave request is recorded.</h2>
+      <p class="success-copy" id="success-copy">Your request is being saved. The confirmation below explains whether it was sent to an administrator or saved locally.</p>
 
       <!-- Dynamic Live Approval Status Banner -->
       <div id="approval-status-card" class="approval-status-card status-pending">
@@ -184,7 +184,7 @@
               <span class="status-ref-tag" id="status-ref-tag">Ref: LR-XXXXXXXX</span>
             </div>
             <h3 id="status-title">Awaiting Administrator Approval</h3>
-            <p id="status-desc">Your formal letter has been sent to the Admin. The <strong>"Download letter PDF"</strong> button below is disabled and will automatically unlock as soon as the admin approves your request.</p>
+            <p id="status-desc">Your request status will appear here after submission.</p>
             <div id="status-admin-note" class="status-admin-note hidden"></div>
           </div>
           <button class="button button-secondary status-refresh-btn" id="check-status-btn" type="button" title="Check approval status now">
@@ -194,7 +194,7 @@
         </div>
         <div class="status-pulse-bar">
           <span class="pulse-indicator"></span>
-          <span id="status-pulse-text">Live Sync Active · Checking for admin decision in real time…</span>
+          <span id="status-pulse-text">Checking request status…</span>
         </div>
       </div>
 
